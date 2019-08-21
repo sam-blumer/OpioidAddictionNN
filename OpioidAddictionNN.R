@@ -19,7 +19,7 @@ library(naniar)
 library(data.table)
 
 ##READ IN DATA##
-data <- read.csv("C:/Users/blume/Desktop/practicumII/Data/DATA1.csv", stringsAsFactors = FALSE, header = TRUE, sep = ',')
+data <- read.csv("C:/Users/blume/Desktop/Data/DATA1.csv", stringsAsFactors = FALSE, header = TRUE, sep = ',')
 
 ###DATA CLEANSING###
 data$YEAR <- NULL #all samples from 2012
@@ -232,7 +232,7 @@ data <- na.omit(data)
 
 
 ##READ IN DATA FOR OPIOID DEATHS US##
-od_rate <- read.csv("C:/Users/blume/Desktop/practicumII/Data/od_rate_us.csv", stringsAsFactors = FALSE, header = TRUE, sep = ',')
+od_rate <- read.csv("C:/Users/blume/Desktop/Data/od_rate_us.csv", stringsAsFactors = FALSE, header = TRUE, sep = ',')
 od_rate <- as.data.table(od_rate)
 od_rate <- melt(od_rate)
 head(od_rate)
@@ -247,7 +247,7 @@ plot(od_ts, main="US Opioid Overdose Rate",
 
 
 ##READ IN DATA FOR OPIOID DEATHS BY STATE##
-od_rate_st <- read.csv("C:/Users/blume/Desktop/practicumII/Data/od_rate.csv", stringsAsFactors = FALSE, header = TRUE, sep = ',')
+od_rate_st <- read.csv("C:/Users/blume/Desktop/Data/od_rate.csv", stringsAsFactors = FALSE, header = TRUE, sep = ',')
 od_rate_st <- as.data.table(od_rate_st)
 od_rate_st <- melt(od_rate_st)
 
@@ -257,6 +257,8 @@ od_rate_st$Year <- as.integer(od_rate_st$Year)
 ggplot(od_rate_st, aes(x = Year, y = Value)) + 
   geom_line(aes(color = Location), size = 1) +
   #scale_color_manual(values = c("#00AFBB", "#E7B800")) +
+  geom_text(aes(label=ifelse(Value>35,as.character(Location),'')),hjust=0,vjust=0) +
+  geom_text(aes(label=ifelse(Year>23,as.character(Location),'')),hjust=0,vjust=0) +
   theme_minimal()+
   theme(legend.position = "none") +
   labs(subtitle="", 
@@ -305,15 +307,15 @@ data %>%
   count(DSMCRIT) %>%
   mutate(pct = n / sum(n)) %>%
   ggplot(aes(reorder(DSMCRIT, pct), pct)) +
+  scale_fill_brewer(palette = "YlGnBu") +
   geom_col() +
   coord_flip() +
-  scale_fill_brewer( palette = "YlGnBu" ) +
   theme_minimal() + theme( legend.position = "bottom" )
 
 
 #"other" category. An easy way to do that is to use fct_lump.4 Here we use n = 5 to retain the top 5
 data %>% 
-  filter(SUB1 != "ALCOHOL" & SUB1 != "MARIJUANA/HASHISH") %>% 
+  filter(SUB1 != "ALCOHOL" & SUB1 != "MARIJUANA_OR_HASHISH") %>% 
   mutate(SUB1 = fct_lump(SUB1, n = 5)) %>% 
   count(SUB1) %>%
   mutate(pct = n / sum(n)) %>%
@@ -430,6 +432,7 @@ data$STFIPS <- NULL
 data$CBSA <- NULL
 data$CASEID <- NULL
 
+
 #filter for response variable
 data$DSMCRIT <- ifelse(data$DSMCRIT == "OPIOID_DEPENDENCE" | data$DSMCRIT == "OPIOID_ABUSE", 1, 0)
 
@@ -449,7 +452,7 @@ hot_data$OPSYNFLG_NO <- NULL
 hot_data$PSYPROB_UNKNOWN <- NULL
 hot_data$PSYPROB_NO <- NULL
 
-feature_cols <- hot_data[,1:181]
+feature_cols <- hot_data[,1:180]
 
 
 ###########SPLIT DATA TRAIN/TEST#################
@@ -496,7 +499,8 @@ NN3 <- NN2 <- neuralnet(DSMCRIT ~ .,
                                 linear.output = FALSE, 
                                 err.fct = 'ce', 
                                 likelihood = TRUE, 
-                                hidden = c(2,2))
+                                hidden = c(2,2),
+                                stepmax = 10000)
 
 # 2-Hidden Layers, Layer-1 1-neuron, Layer-2, 2-neuron
 set.seed(123)
@@ -535,7 +539,7 @@ myvars <- colnames(myvars)
 
 temp_test <- subset(data_test, select = myvars)
 head(temp_test)
-nn.results <- neuralnet::compute(NN4, temp_test)
+nn.results <- neuralnet::compute(NN3, temp_test)
 results <- data.frame(actual = data_test$DSMCRIT, prediction = nn.results$net.result)
 
 results
@@ -552,8 +556,6 @@ plot(NN4, rep = 'best')
 
 
 
-
-
 #RANDOM FOREST FEAUTRE EXPLORATION 
 #FEATURE ENGINEERING
 #get feature importance
@@ -567,4 +569,4 @@ varImp
 impplot <- varImpPlot(fit_rf)
 #results
 fit_rf
-
+plot(fit_rf)
